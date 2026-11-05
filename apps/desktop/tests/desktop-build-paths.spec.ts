@@ -5,6 +5,7 @@ import {
   desktopTargetPlatform,
   developmentRuntimeDirectory,
   resolveDesktopBuildTarget,
+  resolveDesktopDevelopmentTarget,
   resolveDesktopTargetBuildPaths,
 } from '../scripts/desktop-build-paths.mjs'
 
@@ -73,6 +74,38 @@ describe('desktop build paths', () => {
       .toContain(join('targets', 'mac-x64', 'runtime', 'primary-runtime'))
     expect(developmentRuntimeDirectory({}, 'win32', 'arm64'))
       .toContain(join('targets', 'win-x64', 'runtime', 'primary-runtime'))
+  })
+
+  it('resolves the primary runtime for local Linux ARM64 development', () => {
+    expect(developmentRuntimeDirectory({}, 'linux', 'arm64'))
+      .toContain(join('targets', 'linux-arm64', 'runtime', 'primary-runtime'))
+  })
+
+  it('selects Linux ARM64 for the local development launcher', () => {
+    expect(resolveDesktopDevelopmentTarget({}, 'linux', 'arm64')).toBe('linux-arm64')
+  })
+
+  it('honors explicit development target overrides', () => {
+    expect(resolveDesktopDevelopmentTarget({
+      DSH_DESKTOP_TARGET_PLATFORM: 'linux',
+      DSH_DESKTOP_TARGET_ARCH: 'arm64',
+    }, 'darwin', 'x64')).toBe('linux-arm64')
+  })
+
+  it('rejects unsupported Linux development architectures', () => {
+    expect(() => resolveDesktopDevelopmentTarget({}, 'linux', 'x64')).toThrow(/unsupported target/u)
+  })
+
+  it('isolates Linux ARM64 development outputs from packaged targets', () => {
+    const linux = desktopTargetBuildPaths('linux-arm64')
+    const mac = desktopTargetBuildPaths('mac-arm64')
+    expect(linux.runtime).toContain(join('targets', 'linux-arm64', 'runtime'))
+    expect(linux.runtime).not.toBe(mac.runtime)
+    expect(linux.downloads).toBe(mac.downloads)
+  })
+
+  it('rejects Linux ARM64 as an installer target', () => {
+    expect(() => resolveDesktopBuildTarget({}, 'linux', 'arm64')).toThrow(/unsupported target/u)
   })
 
   it('maps every target to the platform and architecture of the payload it prepares', () => {

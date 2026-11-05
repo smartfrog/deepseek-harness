@@ -1,5 +1,8 @@
 import type { DesktopAutoUpdateTarget } from './desktop-auto-update-environment.mjs'
 
+/** Targets supported by the unpackaged Desktop launcher. */
+export type DesktopDevelopmentTarget = DesktopAutoUpdateTarget | 'linux-arm64'
+
 /** Mutable target directories plus shared download and package caches. */
 export interface DesktopTargetBuildPaths {
   readonly root: string
@@ -32,12 +35,25 @@ export function resolveDesktopBuildTarget(
 ): DesktopAutoUpdateTarget
 
 /**
- * Return the mutable preparation and artifact directories owned by one release target.
- * @param target - Supported Desktop target name.
+ * Resolve an unpackaged development target without enabling Linux installers or updates.
+ * @param env - Development target overrides.
+ * @param hostPlatform - Development host platform.
+ * @param hostArch - Development host architecture.
+ * @returns Supported development target.
+ */
+export function resolveDesktopDevelopmentTarget(
+  env?: NodeJS.ProcessEnv,
+  hostPlatform?: NodeJS.Platform,
+  hostArch?: string,
+): DesktopDevelopmentTarget
+
+/**
+ * Return the mutable preparation and artifact directories owned by one Desktop target.
+ * @param target - Supported release or development target.
  * @param environment - Packaging environment with an optional absolute cache directory.
  * @returns Target paths plus shared download and package caches.
  */
-export function desktopTargetBuildPaths(target: DesktopAutoUpdateTarget, environment?: NodeJS.ProcessEnv): DesktopTargetBuildPaths
+export function desktopTargetBuildPaths(target: DesktopDevelopmentTarget, environment?: NodeJS.ProcessEnv): DesktopTargetBuildPaths
 
 /**
  * Return the platform and architecture of the payload one release target prepares.

@@ -16,7 +16,7 @@ import { dirname, join } from 'node:path'
 import { createDevelopmentProjectMetadata } from '../src/project-manager.ts'
 import type { DesktopRelease } from '../src/release.ts'
 import { DESKTOP_RUNTIME_FILE, type DesktopRuntimeDescriptor } from '../src/runtime-tree.ts'
-import type { DesktopAutoUpdateTarget } from './desktop-auto-update-environment.mjs'
+import type { DesktopDevelopmentTarget } from './desktop-build-paths.mjs'
 import { desktopTargetPlatform } from './desktop-build-paths.mjs'
 
 interface PackageManifest {
@@ -38,7 +38,7 @@ export interface DevelopmentProjectOptions {
   /** Release identity written into the disposable project metadata. */
   readonly release: DesktopRelease
   /** Build target whose prepared payload the disposable project runs against. */
-  readonly target: DesktopAutoUpdateTarget
+  readonly target: DesktopDevelopmentTarget
 }
 
 function readManifest(path: string): PackageManifest {
@@ -162,8 +162,11 @@ export function prepareDevelopmentProject(options: DevelopmentProjectOptions): s
     const manifest = readManifest(join(destinationModules, name, 'package.json'))
     return typeof manifest.version === 'string' ? [{ name, version: manifest.version, path: `node_modules/${name}` }] : []
   })
+  const target = options.target === 'linux-arm64'
+    ? { platform: 'linux' as const, arch: 'arm64' }
+    : desktopTargetPlatform(options.target)
   const runtime: DesktopRuntimeDescriptor = { schemaVersion: 1, release: options.release,
-    ...desktopTargetPlatform(options.target), sharedPackages, files: [] }
+    ...target, sharedPackages, files: [] }
   writeFileSync(join(options.projectDir, DESKTOP_RUNTIME_FILE), `${JSON.stringify(runtime, undefined, 2)}\n`)
   return options.projectDir
 }

@@ -5,6 +5,15 @@ import { isAbsolute, join, resolve } from 'node:path'
 const APP_ROOT = resolve(import.meta.dirname, '..')
 const BUILD_ROOT = join(APP_ROOT, '.desktop-build')
 const SUPPORTED_TARGETS = new Set(['mac-arm64', 'mac-x64', 'win-x64'])
+const DEVELOPMENT_TARGETS = new Set([...SUPPORTED_TARGETS, 'linux-arm64'])
+
+function configuredDesktopTarget(env, hostPlatform, hostArch) {
+  const platform = env.DSH_DESKTOP_TARGET_PLATFORM ?? env.npm_config_platform ?? hostPlatform
+  const arch = env.DSH_DESKTOP_TARGET_ARCH ?? env.npm_config_arch
+    ?? (platform === 'win32' || platform === 'win' ? 'x64' : hostArch)
+  const os = platform === 'darwin' ? 'mac' : platform === 'win32' || platform === 'win' ? 'win' : platform
+  return `${os}-${arch}`
+}
 
 /**
  * Resolve the fixed build target selected by a packaging environment.
@@ -18,31 +27,42 @@ export function resolveDesktopBuildTarget(
   hostPlatform = process.platform,
   hostArch = process.arch,
 ) {
-  const platform = env.DSH_DESKTOP_TARGET_PLATFORM ?? env.npm_config_platform ?? hostPlatform
-  const arch = env.DSH_DESKTOP_TARGET_ARCH ?? env.npm_config_arch
-    ?? (platform === 'win32' || platform === 'win' ? 'x64' : hostArch)
-  const os = platform === 'darwin' ? 'mac' : platform === 'win32' || platform === 'win' ? 'win' : platform
-  const target = `${os}-${arch}`
-  if (!SUPPORTED_TARGETS.has(target)) {
-    throw new Error(`desktop build paths: unsupported target ${target}`)
-  }
+  const target = configuredDesktopTarget(env, hostPlatform, hostArch)
+  assertSupportedTarget(target)
   return /** @type {'mac-arm64' | 'mac-x64' | 'win-x64'} */ (target)
 }
 
-function assertSupportedTarget(target) {
-  if (!SUPPORTED_TARGETS.has(target)) {
+/**
+ * Resolve an unpackaged development target without enabling Linux installers or updates.
+ * @param {NodeJS.ProcessEnv} env - Development target overrides.
+ * @param {NodeJS.Platform} hostPlatform - Development host platform.
+ * @param {string} hostArch - Development host architecture.
+ * @returns {'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-arm64'} Supported development target.
+ */
+export function resolveDesktopDevelopmentTarget(
+  env = process.env,
+  hostPlatform = process.platform,
+  hostArch = process.arch,
+) {
+  const target = configuredDesktopTarget(env, hostPlatform, hostArch)
+  assertSupportedTarget(target, DEVELOPMENT_TARGETS)
+  return /** @type {'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-arm64'} */ (target)
+}
+
+function assertSupportedTarget(target, supported = SUPPORTED_TARGETS) {
+  if (!supported.has(target)) {
     throw new Error(`desktop build paths: unsupported target ${String(target)}`)
   }
 }
 
 /**
- * Return the mutable preparation and artifact directories owned by one release target.
- * @param {'mac-arm64' | 'mac-x64' | 'win-x64'} target - Supported Desktop target name.
+ * Return the mutable preparation and artifact directories owned by one Desktop target.
+ * @param {'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-arm64'} target - Supported release or development target.
  * @param {NodeJS.ProcessEnv} environment - Packaging environment with an optional absolute cache directory.
  * @returns {{ root: string, artifacts: string, unsignedArtifacts: string, unnotarizedArtifacts: string, runtime: string, packageSet: string, dsh: string, dshPnpm: string, electron: string, packedDsh: string, packedVendor: string, packedLandlock: string, downloads: string, pnpmStore: string }} Target paths plus shared download and package caches.
  */
 export function desktopTargetBuildPaths(target, environment = process.env) {
-  assertSupportedTarget(target)
+  assertSupportedTarget(target, DEVELOPMENT_TARGETS)
   const cacheRoot = environment.DSH_DESKTOP_PACKAGE_CACHE_DIR ?? BUILD_ROOT
   if (!cacheRoot.trim() || !isAbsolute(cacheRoot) || cacheRoot.includes('\0')) {
     throw new Error('desktop package: DSH_DESKTOP_PACKAGE_CACHE_DIR must be a nonempty absolute directory')
@@ -112,7 +132,8 @@ export function developmentRuntimeDirectory(
   hostPlatform = process.platform,
   hostArch = process.arch,
 ) {
-  return join(resolveDesktopTargetBuildPaths(env, hostPlatform, hostArch).runtime, 'primary-runtime')
+  const target = resolveDesktopDevelopmentTarget(env, hostPlatform, hostArch)
+  return join(desktopTargetBuildPaths(target, env).runtime, 'primary-runtime')
 }
 
 /**

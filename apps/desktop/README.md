@@ -201,6 +201,8 @@ After an explicit build, `start:desktop` reconstructs the disposable project and
 pnpm run start:desktop
 ```
 
+Unpackaged development on Linux ARM64 requires glibc, a graphical session, and the locked Electron binary. Prepare that binary with `pnpm --filter @deepseek-ai/dsh-desktop exec install-electron`, then use the development commands above. The launcher prepares the Linux ARM64 Node, Python, and pnpm payload without changing system interpreters. Linux installers, release publication, and automatic updates are not supported.
+
 Desktop package preparation filters optional native packages by the installer target’s OS and architecture. Windows package sets omit the macOS Computer Use tarball, including when their inputs were packed on macOS.
 
 The Web counterparts are `pnpm run dev:web` and `pnpm run start:web`, documented in the [development guide](../../docs/development.md). Workspace development runs the current CLI and private Desktop Host packages under Electron RunAsNode. Plugin management and recovery use `$DSH_HOME/profiles/desktop`, separate from the disposable workspace runtime. The Host uses runtime module resolution in both development and packaged builds without creating official-package fallback links; developer-installed packages, including links, retain native priority. Use an unpacked application to exercise Electron RunAsNode, bundled pnpm, bundled dsh resources, plugin installation and repair paths.
